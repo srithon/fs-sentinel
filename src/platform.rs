@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::path::PathBuf;
 
-use crate::FileSystemID;
+use crate::{FileSystemID, FileSystem};
 
 /// Abstraction for all platform-specific behavior.
 pub trait Platform
@@ -18,8 +18,7 @@ where
     /// `path`.
     fn get_filesystem_watcher(
         &self,
-        filesystem_identifier: FileSystemID,
-        filesystem_path: PathBuf,
+        filesystem: FileSystem
     ) -> Self::Watcher;
 }
 
@@ -27,6 +26,6 @@ where
 #[async_trait]
 pub trait FileSystemWatcher {
     /// Function that terminates when there is a change on the filesystem, yielding the
-    /// filesystem's identifier.
+    /// FileSystem's identifier.
     async fn wait_for_change(self) -> FileSystemID;
 }

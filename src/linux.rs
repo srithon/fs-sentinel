@@ -8,7 +8,7 @@ use tokio::process::Command;
 
 use crate::{
     platform::{FileSystemWatcher, Platform},
-    FileSystemID,
+    FileSystem, FileSystemID,
 };
 
 /// Platform-specific implementation for Linux.
@@ -21,23 +21,13 @@ impl Platform for Linux {
         "/var/cache/fs-sentinel".into()
     }
 
-    fn get_filesystem_watcher(
-        &self,
-        filesystem_identifier: FileSystemID,
-        filesystem_path: PathBuf,
-    ) -> Self::Watcher {
-        FSNotifyWaitWatcher {
-            filesystem_identifier,
-            filesystem_path,
-        }
+    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher {
+        FSNotifyWaitWatcher(filesystem)
     }
 }
 
 /// `FileSystemWatcher` implementation which uses the `fsnotifywait` command-line tool.
-pub struct FSNotifyWaitWatcher {
-    filesystem_identifier: FileSystemID,
-    filesystem_path: PathBuf,
-}
+pub struct FSNotifyWaitWatcher(FileSystem);
 
 #[async_trait]
 impl FileSystemWatcher for FSNotifyWaitWatcher {
@@ -54,7 +44,7 @@ impl FileSystemWatcher for FSNotifyWaitWatcher {
         // command.arg("%e");
 
         // finally, the directory
-        command.arg(self.filesystem_path);
+        command.arg(self.0.path);
 
         // now, let's run the command, waiting for it to complete.
         let _ = command
@@ -64,6 +54,6 @@ impl FileSystemWatcher for FSNotifyWaitWatcher {
             .await;
 
         // then, let's yield the filesystem id
-        self.filesystem_identifier
+        self.0.id
     }
 }

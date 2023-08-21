@@ -16,4 +16,11 @@ pub struct Daemon<P: Platform> {
     platform: P,
     filesystem_statuses: RwLock<HashMap<FileSystemID, Mutex<bool>>>,
     filesystem_futures: FuturesUnordered<FileSystemID>,
+/// A FileSystem combines a FileSystemID with a path contained within the FileSystem; for any
+/// requirements concerning the path itself, see the documentation for your used `Platform`.
+pub struct FileSystem {
+    pub id: FileSystemID,
+    pub path: PathBuf
+}
+
 }
