@@ -21,6 +21,7 @@ impl Platform for Linux {
         "/var/cache/fs-sentinel".into()
     }
 
+    /// For the Linux platform, `filesystem.path` can be ANY directory within the Filesystem.
     fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher {
         FSNotifyWaitWatcher(filesystem)
     }
