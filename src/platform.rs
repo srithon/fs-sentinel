@@ -12,11 +12,12 @@ where
     type Watcher;
 
     /// Yields the directory for the cache file to be stored on the given platform.
-    fn get_cache_path() -> PathBuf;
+    fn get_cache_path(&self) -> PathBuf;
 
     /// Given a path, yields an instance of `Watcher`, which will monitor the filesystem containing
     /// `path`.
     fn get_filesystem_watcher(
+        &self,
         filesystem_identifier: FileSystemID,
         filesystem_path: PathBuf,
     ) -> Self::Watcher;

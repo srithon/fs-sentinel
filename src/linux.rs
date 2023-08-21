@@ -17,11 +17,12 @@ pub struct Linux;
 impl Platform for Linux {
     type Watcher = FSNotifyWaitWatcher;
 
-    fn get_cache_path() -> PathBuf {
+    fn get_cache_path(&self) -> PathBuf {
         "/var/cache/fs-sentinel".into()
     }
 
     fn get_filesystem_watcher(
+        &self,
         filesystem_identifier: FileSystemID,
         filesystem_path: PathBuf,
     ) -> Self::Watcher {
