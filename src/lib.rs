@@ -6,6 +6,9 @@ mod platform;
 
 use platform::Platform;
 
+#[cfg(feature = "linux")]
+mod linux;
+
 pub type FileSystemID = String;
 
 /// State maps filesystems to whether or not they were modified.
