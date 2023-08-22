@@ -1,5 +1,4 @@
-use miniserde::Deserialize;
-use miniserde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -18,7 +17,7 @@ pub enum FSSentinelError {
     CacheError(#[from] io::Error),
 
     #[error("couldn't parse cache")]
-    CacheParse(#[from] miniserde::Error),
+    CacheParse(#[from] rmp_serde::decode::Error),
 
     #[error("invalid filesystem id: {0:#?}")]
     InvalidFileSystemID(FileSystemID),

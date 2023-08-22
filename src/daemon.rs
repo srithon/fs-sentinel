@@ -1,6 +1,6 @@
 use futures::{future::join_all, stream::FuturesUnordered, Future};
 use futures::{FutureExt, StreamExt};
-use miniserde::json;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{path::PathBuf, pin::Pin};
 
@@ -47,17 +47,17 @@ impl<P: Platform> Daemon<P> {
     }
 
     fn get_cache_filepath(platform: &P) -> PathBuf {
-        platform.get_cache_directory().join("cache.json")
+        platform.get_cache_directory().join("cache.msgpack")
     }
 
     pub fn from_cache(platform: P) -> Result<Self> {
         // now, let's read the cache
-        let cache_contents = std::fs::read_to_string(Self::get_cache_filepath(&platform));
+        let cache_contents = std::fs::read(Self::get_cache_filepath(&platform));
 
         let mut daemon = Self::new(platform);
 
         if let Ok(cache_contents) = cache_contents {
-            let deserialized_cache: Cache = json::from_str(&cache_contents)?;
+            let deserialized_cache: Cache = rmp_serde::decode::from_slice(&cache_contents)?;
             let processed_map = deserialized_cache
                 .into_iter()
                 .map(|(key, val)| {
@@ -102,7 +102,7 @@ impl<P: Platform> Daemon<P> {
             .map(|(key, value)| (key.to_owned(), value))
             .collect();
 
-        let stringified_cache = json::to_string(&normalized_cache);
+        let encoded_cache = rmp_serde::encode::to_vec(&normalized_cache).expect("Cache encoding shouldn't fail");
 
         let cache_directory = self.platform.get_cache_directory();
         // first, create cache path directory
@@ -110,7 +110,7 @@ impl<P: Platform> Daemon<P> {
 
         let cache_filepath = Self::get_cache_filepath(&self.platform);
         // finally, write it to the filesystem
-        fs::write(cache_filepath, stringified_cache).await?;
+        fs::write(cache_filepath, encoded_cache).await?;
 
         Ok(())
     }
