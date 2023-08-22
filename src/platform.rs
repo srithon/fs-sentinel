@@ -9,7 +9,7 @@ where
     Self::Watcher: FileSystemWatcher,
 {
     /// Platform-specific FileSystemWatcher type, used in the return value for `get_filesystem_watcher`.
-    type Watcher;
+    type Watcher: 'static;
 
     /// Yields the directory for the cache file to be stored on the given platform.
     fn get_cache_path(&self) -> PathBuf;
