@@ -80,9 +80,13 @@ impl<P: Platform> Daemon<P> {
         }
     }
 
+    fn get_cache_filepath(platform: &P) -> PathBuf {
+        platform.get_cache_directory().join("cache.json")
+    }
+
     pub fn from_cache(platform: P) -> Result<Self> {
         // now, let's read the cache
-        let cache_contents = std::fs::read_to_string(platform.get_cache_path())?;
+        let cache_contents = std::fs::read_to_string(Self::get_cache_filepath(&platform));
 
         let mut daemon = Self::new(platform);
 
@@ -132,8 +136,9 @@ impl<P: Platform> Daemon<P> {
 
         let stringified_cache = json::to_string(&normalized_cache);
 
+        let cache_filepath = Self::get_cache_filepath(&self.platform);
         // finally, write it to the filesystem
-        fs::write(self.platform.get_cache_path(), stringified_cache).await?;
+        fs::write(cache_filepath, stringified_cache).await?;
 
         Ok(())
     }
