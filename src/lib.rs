@@ -138,6 +138,10 @@ impl<P: Platform> Daemon<P> {
 
         let stringified_cache = json::to_string(&normalized_cache);
 
+        let cache_directory = self.platform.get_cache_directory();
+        // first, create cache path directory
+        fs::create_dir_all(&cache_directory).await?;
+
         let cache_filepath = Self::get_cache_filepath(&self.platform);
         // finally, write it to the filesystem
         fs::write(cache_filepath, stringified_cache).await?;
