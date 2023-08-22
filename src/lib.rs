@@ -29,6 +29,9 @@ pub enum FSSentinelError {
 
     #[error("couldn't parse cache")]
     CacheParse(#[from] miniserde::Error),
+
+    #[error("invalid filesystem id: {0:#?}")]
+    InvalidFileSystemID(FileSystemID),
 }
 
 #[derive(Clone, Debug)]
@@ -139,13 +142,16 @@ impl<P: Platform> Daemon<P> {
         &mut self,
         fs_id: &FileSystemID,
         new_status: FileSystemModificationStatus,
-    ) {
+    ) -> Result<()> {
         let read_guard = self.filesystem_states.read().await;
-        let mut fs_write_guard = read_guard
-            .get(fs_id)
-            .expect("FS must exist in map")
-            .lock()
-            .await;
+        let mut fs_write_guard = {
+            let maybe_mutex = read_guard.get(fs_id);
+
+            match maybe_mutex {
+                Some(mutex) => mutex.lock().await,
+                None => return Err(FSSentinelError::InvalidFileSystemID(fs_id.clone())),
+            }
+        };
 
         fs_write_guard.status = new_status.clone();
 
@@ -175,6 +181,8 @@ impl<P: Platform> Daemon<P> {
                 }
             }
         }
+
+        Ok(())
     }
 
     // TODO: don't require an owned `FileSystem`
@@ -255,7 +263,7 @@ impl<P: Platform> Daemon<P> {
                 Some(next_fs_id) = self.filesystem_futures.next(), if !self.filesystem_futures.is_empty() => {
                     // now, mark the filesystem as modified
                     self.mark_filesystem_status(&next_fs_id, FileSystemModificationStatus::Modified)
-                        .await;
+                        .await?;
                 },
                 _ = shutdown_signals.next() => {
                     // self.shutdown().await;
