@@ -18,7 +18,7 @@ mod platform;
 use platform::{FileSystemWatcher, Platform};
 
 #[cfg(feature = "linux")]
-mod linux;
+pub mod linux;
 
 pub type FileSystemID = String;
 
