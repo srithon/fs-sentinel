@@ -196,6 +196,32 @@ impl<P: Platform> Daemon<P> {
         Ok(())
     }
 
+    /// Given an ID for a filesystem, marks it as UnModified, prompting the daemon to restart the
+    /// corresponding filesystem watcher.
+    pub async fn mark_filesystem_unmodified(&mut self, fs_id: &FileSystemID) -> Result<()> {
+        // the reason this is exposed instead of the actual `mark_filesystem_status` method is
+        // because we don't want users to be able to manually set the modification flag, only unset
+        // it
+        self.mark_filesystem_status(fs_id, FileSystemModificationStatus::UnModified)
+            .await
+    }
+
+    /// Given an ID for a filesystem, yield the current status of the corresponding filesystem.
+    /// Yields an error if the filesystem ID is invalid.
+    pub async fn get_filesystem_status(
+        &self,
+        fs_id: &FileSystemID,
+    ) -> Result<FileSystemModificationStatus> {
+        let read_guard = self.filesystem_states.read().await;
+        match read_guard.get(fs_id) {
+            Some(state) => {
+                let guard = state.lock().await;
+                Ok(guard.status.clone())
+            }
+            None => Err(FSSentinelError::InvalidFileSystemID(fs_id.clone())),
+        }
+    }
+
     // TODO: don't require an owned `FileSystem`
     async fn start_monitoring_filesystem(&mut self, fs: FileSystem) {
         // if a filesystem is not present in our `statuses`, we will initialize it to `modified`
