@@ -90,22 +90,24 @@ impl<P: Platform> Daemon<P> {
 
         let mut daemon = Self::new(platform);
 
-        let deserialized_cache: Cache = json::from_str(&cache_contents)?;
-        let processed_map = deserialized_cache
-            .into_iter()
-            .map(|(key, val)| {
-                (
-                    key,
-                    Mutex::new(FileSystemState {
-                        path: None,
-                        status: val,
-                        has_active_watcher: false,
-                    }),
-                )
-            })
+        if let Ok(cache_contents) = cache_contents {
+            let deserialized_cache: Cache = json::from_str(&cache_contents)?;
+            let processed_map = deserialized_cache
+                .into_iter()
+                .map(|(key, val)| {
+                    (
+                        key,
+                        Mutex::new(FileSystemState {
+                            path: None,
+                            status: val,
+                            has_active_watcher: false,
+                        }),
+                    )
+                })
             .collect();
 
-        daemon.filesystem_states = RwLock::new(processed_map);
+            daemon.filesystem_states = RwLock::new(processed_map);
+        }
 
         Ok(daemon)
     }
