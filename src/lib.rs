@@ -1,11 +1,13 @@
-use futures::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered, Future};
+use futures::{FutureExt, StreamExt};
 use miniserde::Serialize;
 use miniserde::{json, Deserialize};
 use std::collections::HashMap;
 use std::io;
 use std::{path::PathBuf, pin::Pin};
 use thiserror::Error;
+use tokio::signal::ctrl_c;
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::{
     fs,
     sync::{Mutex, RwLock},
@@ -227,19 +229,39 @@ impl<P: Platform> Daemon<P> {
             self.start_monitoring_filesystem(fs).await;
         }
 
+        // need to pin in order to use in select!
+        let sigint_signal = ctrl_c();
+        // have to have this before `shutdown_signals` declaration so that it can get dropped after
+        // it.
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        let mut sigterm =
+            signal(SignalKind::terminate()).expect("SIGTERM should work on Linux and MacOS");
+
+        // needed to use Pin<Box> instead of just Box in order to make the whole type properly
+        // implement Future
+        let mut shutdown_signals: FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>> =
+            FuturesUnordered::new();
+
+        shutdown_signals.push(Box::pin(sigint_signal.map(|_| ())));
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        shutdown_signals.push(Box::pin(sigterm.recv().map(|_| ())));
+
         // now, let's do our main loop
         loop {
-            let next_fs_id = self
-                .filesystem_futures
-                .next()
-                .await
-                .expect("Must not be None");
-
-            // now, mark the filesystem as modified
-            self.mark_filesystem_status(&next_fs_id, FileSystemModificationStatus::Modified)
-                .await;
+            tokio::select! {
+                Some(next_fs_id) = self.filesystem_futures.next(), if !self.filesystem_futures.is_empty() => {
+                    // now, mark the filesystem as modified
+                    self.mark_filesystem_status(&next_fs_id, FileSystemModificationStatus::Modified)
+                        .await;
+                },
+                _ = shutdown_signals.next() => {
+                    // self.shutdown().await;
+                    eprintln!("Shutting down!");
+                    break
+                }
+            }
         }
 
-        // Ok(())
+        Ok(())
     }
 }
