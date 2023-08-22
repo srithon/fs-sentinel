@@ -303,13 +303,17 @@ impl<P: Platform> Daemon<P> {
                         .await?;
                 },
                 _ = shutdown_signals.next() => {
-                    // self.shutdown().await;
                     eprintln!("Shutting down!");
+                    self.shutdown().await?;
                     break
                 }
             }
         }
 
         Ok(())
+    }
+
+    async fn shutdown(&mut self) -> Result<()> {
+        self.update_cache().await
     }
 }
