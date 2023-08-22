@@ -151,7 +151,10 @@ impl<P: Platform> Daemon<P> {
 
         use FileSystemModificationStatus::*;
         match new_status {
-            Modified => (),
+            Modified => {
+                // set active watcher off
+                fs_write_guard.has_active_watcher = false;
+            }
             UnModified => {
                 // if we do not have an active process, then restart
                 if !fs_write_guard.has_active_watcher {
