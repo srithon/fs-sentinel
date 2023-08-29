@@ -79,10 +79,8 @@ impl<P: Platform> Daemon<P> {
         let mut daemon = Self::new(platform);
 
         if let Ok(cache_contents) = cache_contents {
-            let deserialized_cache: Cache = wrap_err!(
-                CacheParse,
-                rmp_serde::decode::from_slice(&cache_contents)
-            )?;
+            let deserialized_cache: Cache =
+                wrap_err!(CacheParse, rmp_serde::decode::from_slice(&cache_contents))?;
 
             let processed_map = deserialized_cache
                 .into_iter()
