@@ -286,6 +286,20 @@ impl<P: Platform> Daemon<P> {
             self.start_monitoring_filesystem(fs).await;
         }
 
+        // let's open up our IPC socket
+        let listener = wrap_err!(SocketError, UnixListener::bind(SOCKET_PATH))?;
+        let socket_stream = UnixListenerStream::new(listener);
+
+        let loop_res = self.main_loop(socket_stream).await;
+
+        // delete the socket file, regardless of result;
+        let deletion_res = wrap_err!(SocketError, tokio::fs::remove_file(SOCKET_PATH).await);
+
+        // finally, return loop_res's Err OR deletion_res's Err OR Ok(());
+        loop_res.and(deletion_res)
+    }
+
+    async fn main_loop(&mut self, mut socket_stream: UnixListenerStream) -> Result<()> {
         // need to pin in order to use in select!
         let sigint_signal = ctrl_c();
         // have to have this before `shutdown_signals` declaration so that it can get dropped after
@@ -302,10 +316,6 @@ impl<P: Platform> Daemon<P> {
         shutdown_signals.push(Box::pin(sigint_signal.map(|_| ())));
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         shutdown_signals.push(Box::pin(sigterm.recv().map(|_| ())));
-
-        // let's open up our IPC socket
-        let listener = wrap_err!(SocketError, UnixListener::bind(SOCKET_PATH))?;
-        let mut socket_stream = UnixListenerStream::new(listener);
 
         const BUFFER_SIZE: usize = 1024;
         let mut buffer: Vec<u8> = vec![0; BUFFER_SIZE];
