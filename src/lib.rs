@@ -14,14 +14,31 @@ pub type FileSystemID = String;
 #[derive(Error, Debug)]
 pub enum FSSentinelError {
     #[error("couldn't read/write cache")]
-    CacheError(#[from] io::Error),
+    CacheError {
+        #[source]
+        source: io::Error
+    },
 
     #[error("couldn't parse cache")]
-    CacheParse(#[from] rmp_serde::decode::Error),
+    CacheParse {
+        #[source]
+        source: rmp_serde::decode::Error
+    },
+
 
     #[error("invalid filesystem id: {0:#?}")]
     InvalidFileSystemID(FileSystemID),
+macro_rules! wrap_err {
+    ($variant:ident, $result:expr) => {{
+        $result.map_err(|error| {
+            FSSentinelError::$variant {
+                source: error
+            }
+        })
+    }}
 }
+
+pub(crate) use wrap_err;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum FileSystemModificationStatus {

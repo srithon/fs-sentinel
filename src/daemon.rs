@@ -13,7 +13,7 @@ use tokio::{
 
 use crate::{
     platform::{FileSystemWatcher, Platform},
-    FSSentinelError, FileSystem, FileSystemID, FileSystemModificationStatus, Result,
+    wrap_err, FSSentinelError, FileSystem, FileSystemID, FileSystemModificationStatus, Result,
 };
 
 #[derive(Clone, Debug)]
@@ -57,7 +57,11 @@ impl<P: Platform> Daemon<P> {
         let mut daemon = Self::new(platform);
 
         if let Ok(cache_contents) = cache_contents {
-            let deserialized_cache: Cache = rmp_serde::decode::from_slice(&cache_contents)?;
+            let deserialized_cache: Cache = wrap_err!(
+                CacheParse,
+                rmp_serde::decode::from_slice(&cache_contents)
+            )?;
+
             let processed_map = deserialized_cache
                 .into_iter()
                 .map(|(key, val)| {
@@ -106,11 +110,11 @@ impl<P: Platform> Daemon<P> {
 
         let cache_directory = self.platform.get_cache_directory();
         // first, create cache path directory
-        fs::create_dir_all(&cache_directory).await?;
+        wrap_err!(CacheError, fs::create_dir_all(&cache_directory).await)?;
 
         let cache_filepath = Self::get_cache_filepath(&self.platform);
         // finally, write it to the filesystem
-        fs::write(cache_filepath, encoded_cache).await?;
+        wrap_err!(CacheError, fs::write(cache_filepath, encoded_cache).await)?;
 
         Ok(())
     }
