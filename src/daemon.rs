@@ -237,6 +237,11 @@ impl<P: Platform> Daemon<P> {
                 .lock()
                 .await;
 
+            // there's no point rewatching it!
+            if matches!(state.status, FileSystemModificationStatus::Modified) {
+                return
+            }
+
             state.has_active_watcher = true;
         }
 
