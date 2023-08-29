@@ -21,6 +21,23 @@ This implementation uses the ~fanotify~ API, specifically the ~fsnotifywait~ com
 The project consists of a library and CLI component.
 The *library* exposes the daemon implementation and a Rust trait which abstracts all platform-specific behavior, allowing you to use the daemon logic for non-Linux platforms, as well as applying it to "file system" definitions which differ from the stock implementation.
 For example, an implementor could trivially treat directories within one physical file system as separate file systems, so long as they specify how to monitor those directories.
+* CLI Usage
+#+begin_example
+fs-sentinel 0.2.1
+
+USAGE:
+    fs-sentinel <SUBCOMMAND>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+SUBCOMMANDS:
+    check
+    daemon
+    help      Prints this message or the help of the given subcommand(s)
+    mark
+#+end_example
 * Provided Setups
 ** ZFS+Linux Integration
 ~fs-sentinel~ comes with short example code for monitoring mounted ZFS datasets on system startup, as well as example implementations for hooks to be used with the amazing [[https://github.com/jimsalterjrs/sanoid/][sanoid]] project, which was my primary usecase going into development.
