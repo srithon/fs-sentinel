@@ -25,9 +25,22 @@ pub enum FSSentinelError {
         source: rmp_serde::decode::Error
     },
 
+    #[error("couldn't parse ipc message")]
+    MessageParse {
+        #[source]
+        source: rmp_serde::decode::Error
+    },
 
     #[error("invalid filesystem id: {0:#?}")]
     InvalidFileSystemID(FileSystemID),
+
+    #[error("error while reading/writing socket")]
+    SocketError {
+        #[source]
+        source: io::Error
+    }
+}
+
 macro_rules! wrap_err {
     ($variant:ident, $result:expr) => {{
         $result.map_err(|error| {

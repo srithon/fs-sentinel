@@ -3,11 +3,14 @@ use futures::{FutureExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{path::PathBuf, pin::Pin};
+use tokio::net::UnixListener;
+use tokio_stream::wrappers::UnixListenerStream;
 
 use tokio::signal::ctrl_c;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::{
     fs,
+    io::{AsyncReadExt, AsyncWriteExt},
     sync::{Mutex, RwLock},
 };
 
@@ -15,6 +18,10 @@ use crate::{
     platform::{FileSystemWatcher, Platform},
     wrap_err, FSSentinelError, FileSystem, FileSystemID, FileSystemModificationStatus, Result,
 };
+
+// unfortunately, we can't create a const Path as of this writing; see
+// https://github.com/rust-lang/rust/pull/92930.
+pub const SOCKET_PATH: &'static str = "/tmp/fs-sentinel.sock";
 
 #[derive(Clone, Debug)]
 struct FileSystemState {
@@ -31,6 +38,21 @@ pub struct Daemon<P: Platform> {
     platform: P,
     filesystem_states: RwLock<HashMap<FileSystemID, Mutex<FileSystemState>>>,
     filesystem_futures: FuturesUnordered<Pin<Box<dyn Future<Output = FileSystemID>>>>,
+}
+
+/// Allowed IPC messages for communicating with the Daemon
+#[derive(Serialize, Deserialize, Debug)]
+pub enum IPCInput {
+    GetFileSystemStatus(FileSystemID),
+    MarkFileSystemUnModified(FileSystemID),
+}
+
+/// Potential output responses for IPCInput messages
+#[derive(Serialize, Deserialize, Debug)]
+pub enum IPCOutput {
+    DaemonError(String),
+    Success,
+    FileSystemStatus(FileSystemModificationStatus),
 }
 
 /// Simplified cache structure for persisting in filesystem.
@@ -106,7 +128,8 @@ impl<P: Platform> Daemon<P> {
             .map(|(key, value)| (key.to_owned(), value))
             .collect();
 
-        let encoded_cache = rmp_serde::encode::to_vec(&normalized_cache).expect("Cache encoding shouldn't fail");
+        let encoded_cache =
+            rmp_serde::encode::to_vec(&normalized_cache).expect("Cache encoding shouldn't fail");
 
         let cache_directory = self.platform.get_cache_directory();
         // first, create cache path directory
@@ -224,6 +247,22 @@ impl<P: Platform> Daemon<P> {
         self.filesystem_futures.push(future);
     }
 
+    async fn process_ipc_input(&mut self, input: IPCInput) -> Result<IPCOutput> {
+        use IPCInput::*;
+        use IPCOutput::*;
+
+        match input {
+            GetFileSystemStatus(id) => {
+                let status = self.get_filesystem_status(&id).await?;
+                Ok(FileSystemStatus(status))
+            }
+            MarkFileSystemUnModified(id) => {
+                self.mark_filesystem_unmodified(&id).await?;
+                Ok(Success)
+            }
+        }
+    }
+
     /// When running the daemon, give it a list of paths to monitor, each with its own unique
     /// identifier which will be used as the cache key.
     pub async fn run(mut self, paths: Vec<FileSystem>) -> Result<()> {
@@ -264,6 +303,13 @@ impl<P: Platform> Daemon<P> {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         shutdown_signals.push(Box::pin(sigterm.recv().map(|_| ())));
 
+        // let's open up our IPC socket
+        let listener = wrap_err!(SocketError, UnixListener::bind(SOCKET_PATH))?;
+        let mut socket_stream = UnixListenerStream::new(listener);
+
+        const BUFFER_SIZE: usize = 1024;
+        let mut buffer: Vec<u8> = vec![0; BUFFER_SIZE];
+
         // now, let's do our main loop
         loop {
             tokio::select! {
@@ -272,6 +318,28 @@ impl<P: Platform> Daemon<P> {
                     self.mark_filesystem_status(&next_fs_id, FileSystemModificationStatus::Modified)
                         .await?;
                 },
+                Some(stream) = socket_stream.next() => {
+                    let mut stream = wrap_err!(SocketError, stream)?;
+                    // NOTE: stream.{read,write} come from Async{Read,Write}Ext, which is in the io-util
+                    // feature of tokio
+                    let num_bytes = wrap_err!(SocketError, stream.read(&mut buffer).await)?;
+
+                    // parse it into structure
+                    let input: IPCInput = wrap_err!(MessageParse, rmp_serde::decode::from_slice(&buffer[..num_bytes]))?;
+
+                    // now, process accordingly
+                    let ipc_response = match self.process_ipc_input(input).await {
+                        Ok(response) => response,
+                        Err(e) => IPCOutput::DaemonError(e.to_string())
+                    };
+
+                    let encoded_response = rmp_serde::encode::to_vec(&ipc_response).expect("Encoding shouldn't fail");
+
+                    // write the response
+                    wrap_err!(SocketError, stream.write_all(&encoded_response).await)?;
+
+                    wrap_err!(SocketError, stream.shutdown().await)?;
+                }
                 _ = shutdown_signals.next() => {
                     eprintln!("Shutting down!");
                     self.shutdown().await?;
