@@ -13,7 +13,14 @@ futures = "0.3"
 thiserror = "1"
 serde = { version = "1", features = ["derive"] }
 rmp-serde = "1"
+anyhow = "1"
+structopt = "0.3"
 
 [features]
-default = ["linux"]
+default = ["linux", "cli"]
 linux = []
+cli = []
+
+[[bin]]
+name = "fs-sentinel"
+required-features = ["cli"]
