@@ -39,6 +39,9 @@ impl FileSystemWatcher for FSNotifyWaitWatcher {
         command.arg("--quiet");
         // watch the entire filesystem associated with the directory.
         command.arg("--filesystem");
+        // only watch the following events, which we consider to be important modifications
+        command.arg("--event");
+        command.arg("modify,attrib,close_write,moved_to,moved_from,move_self,create,delete,delete_self");
 
         // let's format the output so that we get a comma-separated list of the relevant events.
         // command.arg("--format");
