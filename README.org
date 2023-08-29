@@ -1,6 +1,6 @@
 #+title: fs-sentinel
 
-~fs-sentinel~ is a cross-platform service that actively observes file systems for modifications, allowing clients to easily check if a given file system has changed, and reset the "changed" status when they choose.
+~fs-sentinel~ is a (currently) Linux service that actively observes file systems for modifications, allowing clients to easily check if a given file system has changed, and reset the "changed" status when they choose.
 
 * Motivation
 When maintaining incremental file system snapshots on a system with pruning to limit the number of retained snapshots, *duplicate snapshots* should be avoided at all costs.
@@ -19,7 +19,7 @@ The stock Linux implementation uses the Linux definition for "file systems", whi
 This implementation uses the ~fanotify~ API, specifically the ~fsnotifywait~ command-line program, to efficiently monitor file systems for changes.
 
 The project consists of a library and CLI component.
-The library exposes the daemon implementation and a Rust trait which abstracts all platform-specific behavior, allowing you to use the daemon logic for non-Linux platforms, as well as applying it to "file system" definitions which differ from the stock implementation.
+The *library* exposes the daemon implementation and a Rust trait which abstracts all platform-specific behavior, allowing you to use the daemon logic for non-Linux platforms, as well as applying it to "file system" definitions which differ from the stock implementation.
 For example, an implementor could trivially treat directories within one physical file system as separate file systems, so long as they specify how to monitor those directories.
 * Provided Setups
 ** ZFS+Linux Integration
