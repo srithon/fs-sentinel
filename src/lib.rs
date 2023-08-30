@@ -16,19 +16,19 @@ pub enum FSSentinelError {
     #[error("couldn't read/write cache")]
     CacheError {
         #[source]
-        source: io::Error
+        source: io::Error,
     },
 
     #[error("couldn't parse cache")]
     CacheParse {
         #[source]
-        source: rmp_serde::decode::Error
+        source: rmp_serde::decode::Error,
     },
 
     #[error("couldn't parse ipc message")]
     MessageParse {
         #[source]
-        source: rmp_serde::decode::Error
+        source: rmp_serde::decode::Error,
     },
 
     #[error("invalid filesystem id: {0:#?}")]
@@ -37,18 +37,14 @@ pub enum FSSentinelError {
     #[error("error while reading/writing socket")]
     SocketError {
         #[source]
-        source: io::Error
-    }
+        source: io::Error,
+    },
 }
 
 macro_rules! wrap_err {
     ($variant:ident, $result:expr) => {{
-        $result.map_err(|error| {
-            FSSentinelError::$variant {
-                source: error
-            }
-        })
-    }}
+        $result.map_err(|error| FSSentinelError::$variant { source: error })
+    }};
 }
 
 pub(crate) use wrap_err;

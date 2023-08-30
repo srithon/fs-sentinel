@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::path::PathBuf;
 
-use crate::{FileSystemID, FileSystem};
+use crate::{FileSystem, FileSystemID};
 
 /// Abstraction for all platform-specific behavior.
 pub trait Platform
@@ -16,10 +16,7 @@ where
 
     /// Given a path, yields an instance of `Watcher`, which will monitor the filesystem containing
     /// `path`.
-    fn get_filesystem_watcher(
-        &self,
-        filesystem: FileSystem
-    ) -> Self::Watcher;
+    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher;
 }
 
 /// Abstraction for watching a single file system for changes.

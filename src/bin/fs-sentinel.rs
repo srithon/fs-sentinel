@@ -48,7 +48,9 @@ enum CLI {
         // #[structopt(parse(from_os_str))]
         filesystem_id: String,
     },
-    #[structopt(help = "If the specified filesystem has been modified, returns 0, otherwise returns 1")]
+    #[structopt(
+        help = "If the specified filesystem has been modified, returns 0, otherwise returns 1"
+    )]
     Check {
         // #[structopt(parse(from_os_str))]
         filesystem_id: String,
