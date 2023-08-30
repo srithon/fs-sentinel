@@ -45,6 +45,7 @@ pub struct Daemon<P: Platform> {
 pub enum IPCInput {
     GetFileSystemStatus(FileSystemID),
     MarkFileSystemUnModified(FileSystemID),
+    ListAllModifiedFileSystems,
 }
 
 /// Potential output responses for IPCInput messages
@@ -53,6 +54,7 @@ pub enum IPCOutput {
     DaemonError(String),
     Success,
     FileSystemStatus(FileSystemModificationStatus),
+    FileSystemList(Vec<FileSystemID>),
 }
 
 /// Simplified cache structure for persisting in filesystem.
@@ -262,6 +264,24 @@ impl<P: Platform> Daemon<P> {
             MarkFileSystemUnModified(id) => {
                 self.mark_filesystem_unmodified(&id).await?;
                 Ok(Success)
+            }
+            ListAllModifiedFileSystems => {
+                let read_guard = self.filesystem_states.read().await;
+                // futures::stream::iter converts an iterator into an async Stream; Stream methods
+                // take async closures.
+                let filesystems = futures::stream::iter(read_guard.iter())
+                    .filter_map(|(id, state)| async move {
+                        let inner = state.lock().await;
+                        if matches!(inner.status, FileSystemModificationStatus::Modified) {
+                            Some(id.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+                    .await;
+
+                Ok(FileSystemList(filesystems))
             }
         }
     }

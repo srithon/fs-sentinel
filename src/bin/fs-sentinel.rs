@@ -53,6 +53,10 @@ enum CLI {
         // #[structopt(parse(from_os_str))]
         filesystem_id: String,
     },
+    #[structopt(
+        help = "Yields a newline-delimited list of filesystem ids corresponding to all modified filesystems."
+    )]
+    ListModified,
 }
 
 #[tokio::main]
@@ -79,6 +83,7 @@ async fn main() -> Result<ExitCode> {
             let input = match cli {
                 Mark { filesystem_id } => IPCInput::MarkFileSystemUnModified(filesystem_id),
                 Check { filesystem_id } => IPCInput::GetFileSystemStatus(filesystem_id),
+                ListModified => IPCInput::ListAllModifiedFileSystems,
                 _ => unreachable!("every supported option other than Daemon should go here"),
             };
 
@@ -104,6 +109,10 @@ async fn main() -> Result<ExitCode> {
                     // result as the Error branch
                     FileSystemModificationStatus::UnModified => ExitCode::FAILURE,
                 },
+                IPCOutput::FileSystemList(filesystem_ids) => {
+                    println!("{}", filesystem_ids.join("\n"));
+                    ExitCode::SUCCESS
+                }
             }
         }
     };
