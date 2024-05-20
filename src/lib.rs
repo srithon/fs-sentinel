@@ -59,7 +59,7 @@ pub type Result<T> = std::result::Result<T, FSSentinelError>;
 
 /// A FileSystem combines a FileSystemID with a path contained within the FileSystem; for any
 /// requirements concerning the path itself, see the documentation for your used `Platform`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FileSystem {
     pub id: FileSystemID,
     pub path: PathBuf,
