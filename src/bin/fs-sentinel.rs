@@ -40,7 +40,7 @@ fn try_parse_filesystem(s: &str) -> Result<FileSystem> {
 enum CLI {
     #[structopt(about = "Runs the daemon with a specified list of monitored filesystems")]
     Daemon {
-        #[structopt(parse(try_from_str = try_parse_filesystem), help = "List of file systems, each in 'id=path' format, and each passed as a separate command-line argument. Note that each `id` can be an arbitrary string identifier, so long as all ids are unique. Also, the `path`s must all exist.")]
+        #[structopt(parse(try_from_str = try_parse_filesystem), help = "List of file systems, each in 'id=path' format, and each passed as a separate command-line argument. Note that each `id` can be an arbitrary string identifier, so long as all ids are unique. Also, the `path`s must all exist.", required = true)]
         filesystems: Vec<FileSystem>,
     },
     #[structopt(about = "Resets the specified filesystem to unmodified")]
