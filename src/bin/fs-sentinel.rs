@@ -38,25 +38,29 @@ fn try_parse_filesystem(s: &str) -> Result<FileSystem> {
 
 #[derive(StructOpt, Debug)]
 enum CLI {
-    #[structopt(help = "Runs the daemon with a specified list of monitored filesystems")]
+    #[structopt(about = "Runs the daemon with a specified list of monitored filesystems")]
     Daemon {
-        #[structopt(parse(try_from_str = try_parse_filesystem), help = "List of file systems in 'id=path' format")]
+        #[structopt(parse(try_from_str = try_parse_filesystem), help = "List of file systems, each in 'id=path' format, and each passed as a separate command-line argument. Note that each `id` can be an arbitrary string identifier, so long as all ids are unique. Also, the `path`s must all exist.")]
         filesystems: Vec<FileSystem>,
     },
-    #[structopt(help = "Reset the specified filesystem to unmodified")]
+    #[structopt(about = "Resets the specified filesystem to unmodified")]
     Mark {
-        // #[structopt(parse(from_os_str))]
+        #[structopt(
+            help = "This filesystem id must correspond to an id component passed into the daemon initialization"
+        )]
         filesystem_id: String,
     },
     #[structopt(
-        help = "If the specified filesystem has been modified, returns 0, otherwise returns 1"
+        about = "If the specified filesystem has been modified, returns 0, otherwise returns 1"
     )]
     Check {
-        // #[structopt(parse(from_os_str))]
+        #[structopt(
+            help = "This filesystem id must correspond to an id component passed into the daemon initialization"
+        )]
         filesystem_id: String,
     },
     #[structopt(
-        help = "Yields a newline-delimited list of filesystem ids corresponding to all modified filesystems."
+        about = "Yields a newline-delimited list of filesystem ids corresponding to all modified filesystems."
     )]
     ListModified,
 }
