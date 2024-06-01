@@ -118,8 +118,10 @@ my_tmpfs was modified!
 
 This should be sufficient to adapt ~fs-sentinel~ to your own use cases; however, if something in the documentation is unclear, please file an issue and I'll do my best to clear it up!
 * Provided Setups
-** ZFS+Linux Integration
-~fs-sentinel~ comes with short example code for monitoring mounted ZFS datasets on system startup, as well as example implementations for hooks to be used with the amazing [[https://github.com/jimsalterjrs/sanoid/][sanoid]] project, which was my primary usecase going into development.
-To use the project with ~sanoid~ simply point the ~pre_snapshot_script~ and ~post_snapshot_script~ to the corresponding scripts from ~./zfs-linux~.
+Here are some examples on how you might use ~fs-sentinel~.
+** ZFS+Sanoid Linux Integration
+~fs-sentinel~ comes with short example code for monitoring mounted ZFS datasets on system startup, as well as example implementations for hooks to be used with the amazing [[https://github.com/jimsalterjrs/sanoid/][sanoid]] project: my primary use case going into development.
+
+To use the project with ~sanoid~ simply point the ~pre_snapshot_script~ and ~post_snapshot_script~ in your Sanoid configuration to the corresponding scripts from ~./zfs-linux~.
 To use this setup, consider running ~make sanoid-install~, which will place the relevant scripts and binaries in ~/usr/local/bin~ by default, as well as install a Systemd service for launching the daemon.
 After that, modify your ~sanoid.conf~ and you should be good to go!
