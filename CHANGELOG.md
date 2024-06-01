@@ -1,3 +1,10 @@
+# 0.2.3
+
+- greatly improve error handling/messages
+    - daemon now checks if fsnotifywait exists in `PATH` before running
+- `list-modified` now only returns ids which were passed into the active daemon instance
+- expand upon documentation in README.org and INSTALL.org
+
 # 0.2.2
 
 - filesystem list passed to `daemon` must now be non-empty
