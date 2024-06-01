@@ -44,16 +44,14 @@ impl Platform for Linux {
 
     /// Verifies that fsnotifywait is installed.
     fn health_check(&self) -> Result<(), Self::Error> {
-        let fsnotifywait_handle = SyncCommand::new("fsnotifywait").spawn();
-        match fsnotifywait_handle {
-            Ok(mut handle) => {
-                // reap child process
-                let _ = handle.wait();
-            }
-            Err(_) => return Err(Error::MissingFSNotifyWait),
-        };
-
-        Ok(())
+        SyncCommand::new("fsnotifywait")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            // return Ok if command was launched properly
+            .and(Ok(()))
+            // return Err if command failed to launch (exit code notwithstanding)
+            .or(Err(Error::MissingFSNotifyWait))
     }
 }
 
