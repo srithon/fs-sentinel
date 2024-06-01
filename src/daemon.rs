@@ -31,6 +31,8 @@ struct FileSystemState {
     status: FileSystemModificationStatus,
     /// if currently has an active watcher in `filesystem_futures`, then `true`; otherwise `false`
     has_active_watcher: bool,
+    /// if the filesystem was passed into [Daemon::run], then `true`; otherwise `false`
+    is_daemon_monitoring: bool,
 }
 
 /// State maps filesystems to whether or not they were modified.
@@ -100,6 +102,7 @@ impl<P: Platform> Daemon<P> {
                             path: None,
                             status: val,
                             has_active_watcher: false,
+                            is_daemon_monitoring: false,
                         }),
                     )
                 })
@@ -240,6 +243,7 @@ impl<P: Platform> Daemon<P> {
                     path: Some(fs.path.clone()),
                     status: FileSystemModificationStatus::Modified,
                     has_active_watcher: true,
+                    is_daemon_monitoring: true,
                 }),
             );
         } else {
@@ -288,7 +292,9 @@ impl<P: Platform> Daemon<P> {
                 let filesystems = futures::stream::iter(read_guard.iter())
                     .filter_map(|(id, state)| async move {
                         let inner = state.lock().await;
-                        if matches!(inner.status, FileSystemModificationStatus::Modified) {
+                        if inner.is_daemon_monitoring
+                            && matches!(inner.status, FileSystemModificationStatus::Modified)
+                        {
                             Some(id.clone())
                         } else {
                             None
@@ -311,13 +317,16 @@ impl<P: Platform> Daemon<P> {
             let fs_entry = self.filesystem_states.get_mut().entry(fs.id.clone());
             fs_entry
                 .and_modify(|state| {
-                    state.get_mut().path = Some(fs.path.clone());
+                    let state = state.get_mut();
+                    state.path = Some(fs.path.clone());
+                    state.is_daemon_monitoring = true;
                 })
                 .or_insert_with(|| {
                     Mutex::new(FileSystemState {
                         path: Some(fs.path.clone()),
                         status: FileSystemModificationStatus::UnModified,
                         has_active_watcher: false,
+                        is_daemon_monitoring: true,
                     })
                 });
 
