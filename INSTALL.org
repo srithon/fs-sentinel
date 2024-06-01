@@ -1,0 +1,35 @@
+#+title: Installation
+
+Note that the command-line currently only works on Linux, because the underlying implementation requires the [[https://github.com/inotify-tools/inotify-tools][inotify-tools]] package, which provides the ~fsnotifywait~ command.
+This package is provided in the main repositories of most major distributions, under the name ~inotify-tools~.
+
+* Prerequisite Dependencies
+** Arch Linux
+#+begin_src sh
+sudo pacman -S inotify-tools
+#+end_src
+** Ubuntu/Debian
+#+begin_src sh
+sudo apt install inotify-tools
+#+end_src
+** Fedora-Based
+Note that for RHEL you may need to enable EPEL first.
+#+begin_src sh
+sudo dnf install inotify-tools
+#+end_src
+* ~fs-sentinel~ Installation
+Once you've installed the prerequisite(s), you may now choose to either build ~fs-sentinel~ from the source /or/ download the prebuilt binary from GitHub releases.
+Since your use case for ~fs-sentinel~ will almost definitely require that the daemon is run as ~root~, it's recommended that you install the binary to a system location like ~/usr/local/bin~.
+
+*Option 1 (recommended)*: download the prebuilt binary tarball from the [[https://github.com/srithon/fs-sentinel/releases][releases page]], corresponding to your system's architecture.
+Next, extract the tarball, which will put ~fs-sentinel~ into the current directory:
+Then, move the executable to the desired location.
+#+begin_src sh
+tar -zxvf "<downloaded .tar.gz filename>"
+mv fs-sentinel /usr/local/bin
+#+end_src
+
+*Option 2*: build the ~fs-sentinel~ binary from the source code, with Cargo. Note that by default, the ~make~ rule will put the compiled binary into ~/usr/local/bin~. You can override the ~BINDIR~ variable to change this.
+#+begin_src sh
+make install
+#+end_src

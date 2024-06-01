@@ -22,6 +22,8 @@ The project consists of a library and CLI component.
 The *library* exposes the daemon implementation and a Rust trait which abstracts all platform-specific behavior, allowing you to use the daemon logic for non-Linux platforms, as well as applying it to "file system" definitions which differ from the stock implementation.
 For example, an implementor could trivially treat directories within one physical file system as separate file systems, so long as they specify how to monitor those directories.
 * CLI Usage
+Note: see [[./INSTALL.org][INSTALL.org]] for installation instructions.
+
 #+begin_example
 fs-sentinel 0.2.2
 
