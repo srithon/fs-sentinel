@@ -39,11 +39,19 @@ pub enum FSSentinelError {
         #[source]
         source: io::Error,
     },
+
+    #[error("error during platform health check")]
+    HealthCheckError {
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 macro_rules! wrap_err {
     ($variant:ident, $result:expr) => {{
-        $result.map_err(|error| FSSentinelError::$variant { source: error })
+        wrap_err!($variant, $result, std::convert::identity)
+    }};
+    ($variant:ident, $result:expr, $map_fn:expr) => {{
+        $result.map_err(|error| FSSentinelError::$variant { source: $map_fn(error) })
     }};
 }
 

@@ -62,23 +62,30 @@ type Cache = HashMap<String, FileSystemModificationStatus>;
 
 impl<P: Platform> Daemon<P> {
     /// Creates a clean Daemon instance without reading from the cache.
-    pub fn new(platform: P) -> Self {
-        Daemon {
+    /// Performs a health check before returning, returning [Err] if the check fails and [Ok]
+    /// otherwise.
+    pub fn new(platform: P) -> Result<Self> {
+        wrap_err!(HealthCheckError, platform.health_check(), Box::new)?;
+
+        Ok(Daemon {
             platform,
             filesystem_states: RwLock::new(HashMap::new()),
             filesystem_futures: FuturesUnordered::new(),
-        }
+        })
     }
 
     fn get_cache_filepath(platform: &P) -> PathBuf {
         platform.get_cache_directory().join("cache.msgpack")
     }
 
+    /// Creates a Daemon instance after reading current values from the cache.
+    /// Performs a health check before returning, returning [Err] if the check fails.
+    /// Also returns [Err] if the cache is in an invalid state.
     pub fn from_cache(platform: P) -> Result<Self> {
         // now, let's read the cache
         let cache_contents = std::fs::read(Self::get_cache_filepath(&platform));
 
-        let mut daemon = Self::new(platform);
+        let mut daemon = Self::new(platform)?;
 
         if let Ok(cache_contents) = cache_contents {
             let deserialized_cache: Cache =
@@ -181,7 +188,7 @@ impl<P: Platform> Daemon<P> {
                         id: fs_id.clone(),
                         path: fs_path,
                     })
-                    .await;
+                    .await?;
                 }
             }
         }
@@ -216,7 +223,10 @@ impl<P: Platform> Daemon<P> {
     }
 
     // TODO: don't require an owned `FileSystem`
-    async fn start_monitoring_filesystem(&mut self, fs: FileSystem) {
+    async fn start_monitoring_filesystem(
+        &mut self,
+        fs: FileSystem,
+    ) -> std::result::Result<(), FSSentinelError> {
         // if a filesystem is not present in our `statuses`, we will initialize it to `modified`
         let statuses_ro = self.filesystem_states.read().await;
         let filesystem_exists = statuses_ro.contains_key(&fs.id);
@@ -241,15 +251,21 @@ impl<P: Platform> Daemon<P> {
 
             // there's no point rewatching it!
             if matches!(state.status, FileSystemModificationStatus::Modified) {
-                return;
+                return Ok(());
             }
 
             state.has_active_watcher = true;
         }
 
-        let watcher = self.platform.get_filesystem_watcher(fs);
+        let watcher = wrap_err!(
+            FileSystemWatchError,
+            self.platform.get_filesystem_watcher(fs),
+            Box::new
+        )?;
         let future = watcher.wait_for_change();
         self.filesystem_futures.push(future);
+
+        Ok(())
     }
 
     async fn process_ipc_input(&mut self, input: IPCInput) -> Result<IPCOutput> {
@@ -306,7 +322,7 @@ impl<P: Platform> Daemon<P> {
                 });
 
             // OPTIMIZE: do asynchronously
-            self.start_monitoring_filesystem(fs).await;
+            self.start_monitoring_filesystem(fs).await?;
         }
 
         // let's open up our IPC socket

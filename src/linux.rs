@@ -4,6 +4,7 @@
 //! binding for `fanotify`.
 use async_trait::async_trait;
 use std::path::PathBuf;
+use std::process::Command as SyncCommand;
 use tokio::process::Command;
 
 use crate::{
@@ -11,11 +12,20 @@ use crate::{
     FileSystem, FileSystemID,
 };
 
+use thiserror::Error;
+
 /// Platform-specific implementation for Linux.
 pub struct Linux;
 
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("can't find fsnotifywait binary in PATH; see README for more details")]
+    MissingFSNotifyWait,
+}
+
 impl Platform for Linux {
     type Watcher = FSNotifyWaitWatcher;
+    type Error = Error;
 
     fn get_cache_directory(&self) -> PathBuf {
         "/var/cache/fs-sentinel".into()
@@ -24,6 +34,20 @@ impl Platform for Linux {
     /// For the Linux platform, `filesystem.path` can be ANY directory within the Filesystem.
     fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher {
         FSNotifyWaitWatcher(filesystem)
+    }
+
+    /// Verifies that fsnotifywait is installed.
+    fn health_check(&self) -> Result<(), Self::Error> {
+        let fsnotifywait_handle = SyncCommand::new("fsnotifywait").spawn();
+        match fsnotifywait_handle {
+            Ok(mut handle) => {
+                // reap child process
+                let _ = handle.wait();
+            }
+            Err(_) => return Err(Error::MissingFSNotifyWait),
+        };
+
+        Ok(())
     }
 }
 
