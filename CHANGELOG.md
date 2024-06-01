@@ -1,3 +1,8 @@
+# 0.2.4
+
+- remove the "initially modified" behavior from the `fs-sentinel` library
+    - note that this change has no observable effect from the CLI
+
 # 0.2.3
 
 - greatly improve error handling/messages
