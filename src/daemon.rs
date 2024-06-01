@@ -241,7 +241,7 @@ impl<P: Platform> Daemon<P> {
                 fs.id.clone(),
                 Mutex::new(FileSystemState {
                     path: Some(fs.path.clone()),
-                    status: FileSystemModificationStatus::Modified,
+                    status: FileSystemModificationStatus::UnModified,
                     has_active_watcher: true,
                     is_daemon_monitoring: true,
                 }),
