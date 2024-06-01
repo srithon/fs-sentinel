@@ -43,28 +43,36 @@ SUBCOMMANDS:
 #+end_example
 
 Here's an example on how you might use the daemon.
+For the sake of reproducibility, let's create an artificial file system configuration of ~tmpfs~'s to use in the example.
+#+begin_src sh
+$ mkdir /tmp/exampleRoot && cd /tmp/exampleRoot
+$ for dir in foo bar baz; do mkdir $dir; sudo mount -t tmpfs "fs-sentinel_$dir" $dir; done
+#+end_src
+
 First, let's get a list of all the unique "file systems" that we have on our system.
 Each of these ~TARGET~'s are valid paths to pass to the CLI.
 #+begin_src sh
-$ findmnt --output target,source,fstype # truncated output
+$ findmnt --output target,source,fstype # heavily truncated output
 TARGET                         SOURCE             FSTYPE
 /                              /dev/nvme0n1p1     ext4
 ├─/tmp                         tmpfs              tmpfs
+│ ├─/tmp/exampleRoot/foo       fs-sentinel_foo    tmpfs
+│ ├─/tmp/exampleRoot/bar       fs-sentinel_bar    tmpfs
+│ └─/tmp/exampleRoot/baz       fs-sentinel_baz    tmpfs
 ├─/pool                        pool               zfs
-│ ├─/pool/music                pool/music         zfs
-│ ├─/pool/shared-root          pool/shared-root   zfs
 │ ├─/pool/var                  pool/var           zfs
 │ ├─/pool/arch-home            pool/arch-home     zfs
-├─/nix                         pool/var[/nix]     zfs
-└─/home                        pool/arch-home     zfs
+│ └─/pool/general-store        pool/general-store zfs
+└─/nix                         pool/var[/nix]     zfs
 #+end_src
 
-Notice that on the system in the example, ~/~ and ~/pool/arch-home~ are /separate/ file systems.
+Notice that though the directories corresponding to the different ~TARGET~'s are nested, the actual /filesystems/ (identified by the ~SOURCE~'s) are completely distinct!
+This means that creating a file ~/tmp/x~ would result in the filesystem corresponding to ~/tmp~ being marked as =Modified= but would /not/ affect the root ~/~ filesystem.
 
-Now, let's set our sentinel to watch the following file systems: ~/tmp~, ~/~ and ~/pool/arch-home~.
-We will arbitrarily give each of these filesystems the identifiers: ~my_tmpfs~, ~my_rootfs~ and ~home~, just to illustrate that these identifiers can be distinct from the paths.
+Now, let's set our sentinel to watch the file systems pertaining to the following directories: ~/tmp/exampleRoot/foo~, ~/tmp/exampleRoot/bar~ and ~/tmp/exampleRoot/baz~.
+We will arbitrarily give each of these filesystems the identifiers: ~foo123~, ~bar456~ and ~baz789~, just to illustrate that these identifiers can be different from both the ~TARGET~'s and the filesystem ~SOURCE~'s (from the ~findmnt~ output).
 #+begin_src sh
-$ sudo fs-sentinel daemon my_tmpfs=/tmp my_rootfs=/ home=/pool/arch-home
+$ sudo fs-sentinel daemon foo123=/tmp/exampleRoot/foo bar456=/tmp/exampleRoot/bar baz789=/tmp/exampleRoot/baz
 #+end_src
 
 Note that ~sudo~ is not /always/ required to be able to watch a file system; notably, if the _root_ of the mount is owned by your own user, ~fs-sentinel~ can /generally/ monitor it even without ~root~ permissions.
@@ -75,46 +83,46 @@ Now that we've launched the daemon, in another terminal, we can see it in action
 Let's start off by getting the list of currently "modified" file systems!
 #+begin_src sh
 $ sudo fs-sentinel list-modified
-my_tmpfs
-my_rootfs
-home
 #+end_src
 
-Observe that this invocation returned /all/ of the file system ids we passed into the daemon originally!
-This is because when the daemon is initialized for the *first time* for a given file system id (not path), the initial state of that file system is set to =Modified=.
-This is meant to be a conservative default value: in the snapshotting use case from the Motivation section, this would potentially result in an extra snapshot being taken right after the daemon was started up for the first time, which is safer than a potentially important snapshot /not/ being taken.
+The output is empty, since we haven't touched any of the directories yet!
 
-Now, if we ~check~ the status of any of these file systems, the command will return exit code 0, which means that the file system /has/ been modified.
+Now, let's modify ~/tmp/exampleRoot/foo~ and see that ~fs-sentinel~ immediately picks it up!
 #+begin_src sh
-$ sudo fs-sentinel check my_tmpfs && echo "It was modified!"
-It was modified!
+$ sudo touch /tmp/exampleRoot/foo/randomfile
+$ sudo fs-sentinel list-modified
+foo123
 #+end_src
 
-Next, let's ~mark~ one of our file systems to reset its status to =UnModified=.
+If we ~check~ the status of ~foo123~, the command will return exit code 0, which means that the file system /has/ been modified.
 #+begin_src sh
-$ sudo fs-sentinel mark my_tmpfs
+$ sudo fs-sentinel check foo123 && echo "foo123 was modified!"
+foo123 was modified!
 #+end_src
 
-If we re-~check~ the status of ~my_tmpfs~, we will see that it now reports exit code 1 instead.
+On the other hand, ~check~'ing the status of either of the other filesystems will return exit code 1, meaning that the file system has /not/ been modified.
 #+begin_src sh
-$ sudo fs-sentinel check my_tmpfs && echo "(This will not print)"
-$ sudo fs-sentinel check my_tmpfs || echo "my_tmpfs was /not/ modified since the last `mark` operation!"
-my_tmpfs was /not/ modified since the last `mark` operation!
+$ sudo fs-sentinel check bar456 && echo "(This will not print)"
+$ sudo fs-sentinel check baz789 || echo "It was /not/ modified!"
+It was /not/ modified!
 #+end_src
 
-As you might expect, ~list-modified~ will now report only the two other file systems, without ~my_tmpfs~.
+Next, let's ~mark~ our ~foo123~ file system to reset its status to =UnModified=.
+#+begin_src sh
+$ sudo fs-sentinel mark foo123
+#+end_src
+
+If we re-~check~ the status of ~foo123~, we would see that it now reports exit code 1 instead.
+Also, as you might expect, ~list-modified~ is now empty again.
 #+begin_src sh
 $ sudo fs-sentinel list-modified
-my_rootfs
-home
 #+end_src
 
-Now, let's modify ~my_tmpfs~ and see that ~fs-sentinel~ immediately picks it up!
-#+begin_src sh
-$ touch /tmp/some-random-file
-$ sudo fs-sentinel check my_tmpfs && echo "my_tmpfs was modified!"
-my_tmpfs was modified!
-#+end_src
+You can stop the daemon by sending Ctrl-C to the attached ~tty~, or by sending a ~SIGTERM~ to the process.
+Note that when stopping the daemon gracefully, it will cache its current list of =Modified= file systems, so that after you relaunch the daemon, these same file systems will retain their =Modified= status!
+
+As an aside, it's recommended that rather than running the daemon manually, you write a Systemd unit to manage it.
+An example unit file is provided in ~/zfs-linux~, which will be elaborated on in a later section.
 
 This should be sufficient to adapt ~fs-sentinel~ to your own use cases; however, if something in the documentation is unclear, please file an issue and I'll do my best to clear it up!
 * Provided Setups
@@ -124,4 +132,5 @@ Here are some examples on how you might use ~fs-sentinel~.
 
 To use the project with ~sanoid~ simply point the ~pre_snapshot_script~ and ~post_snapshot_script~ in your Sanoid configuration to the corresponding scripts from ~./zfs-linux~.
 To use this setup, consider running ~make sanoid-install~, which will place the relevant scripts and binaries in ~/usr/local/bin~ by default, as well as install a Systemd service for launching the daemon.
+This service will watch every single _mounted_ dataset
 After that, modify your ~sanoid.conf~ and you should be good to go!
