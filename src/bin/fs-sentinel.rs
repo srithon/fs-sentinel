@@ -116,7 +116,10 @@ async fn main() -> Result<ExitCode> {
                     FileSystemModificationStatus::UnModified => ExitCode::FAILURE,
                 },
                 IPCOutput::FileSystemList(filesystem_ids) => {
-                    println!("{}", filesystem_ids.join("\n"));
+                    if !filesystem_ids.is_empty() {
+                        println!("{}", filesystem_ids.join("\n"));
+                    }
+
                     ExitCode::SUCCESS
                 }
             }
