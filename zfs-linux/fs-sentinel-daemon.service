@@ -3,7 +3,7 @@ Type=simple
 ExecStart=/usr/local/bin/fs-sentinel-zfs-daemon.sh
 
 [Unit]
-Description=Daemon for monitoring ZFS datasets
+Description=Daemon for monitoring all mounted ZFS datasets using fs-sentinel
 After=zfs-mount.service
 Wants=zfs-mount.service
 
