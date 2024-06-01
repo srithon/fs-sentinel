@@ -41,6 +41,82 @@ SUBCOMMANDS:
     list-modified    Yields a newline-delimited list of filesystem ids corresponding to all modified filesystems.
     mark             Resets the specified filesystem to unmodified
 #+end_example
+
+Here's an example on how you might use the daemon.
+First, let's get a list of all the unique "file systems" that we have on our system.
+Each of these ~TARGET~'s are valid paths to pass to the CLI.
+#+begin_src sh
+$ findmnt --output target,source,fstype # truncated output
+TARGET                         SOURCE             FSTYPE
+/                              /dev/nvme0n1p1     ext4
+├─/tmp                         tmpfs              tmpfs
+├─/pool                        pool               zfs
+│ ├─/pool/music                pool/music         zfs
+│ ├─/pool/shared-root          pool/shared-root   zfs
+│ ├─/pool/var                  pool/var           zfs
+│ ├─/pool/arch-home            pool/arch-home     zfs
+├─/nix                         pool/var[/nix]     zfs
+└─/home                        pool/arch-home     zfs
+#+end_src
+
+Notice that on the system in the example, ~/~ and ~/pool/arch-home~ are /separate/ file systems.
+
+Now, let's set our sentinel to watch the following file systems: ~/tmp~, ~/~ and ~/pool/arch-home~.
+We will arbitrarily give each of these filesystems the identifiers: ~my_tmpfs~, ~my_rootfs~ and ~home~, just to illustrate that these identifiers can be distinct from the paths.
+#+begin_src sh
+$ sudo fs-sentinel daemon my_tmpfs=/tmp my_rootfs=/ home=/pool/arch-home
+#+end_src
+
+Note that ~sudo~ is not /always/ required to be able to watch a file system; notably, if the _root_ of the mount is owned by your own user, ~fs-sentinel~ can /generally/ monitor it even without ~root~ permissions.
+However, there are certain edge cases that come up when using SELinux and/or attempting to use ~fs-sentinel~ from inside of a Docker container, where permissions are more complex than simple file mode bits.
+These complex use cases are unfortunately unsupported for the time being.
+
+Now that we've launched the daemon, in another terminal, we can see it in action.
+Let's start off by getting the list of currently "modified" file systems!
+#+begin_src sh
+$ sudo fs-sentinel list-modified
+my_tmpfs
+my_rootfs
+home
+#+end_src
+
+Observe that this invocation returned /all/ of the file system ids we passed into the daemon originally!
+This is because when the daemon is initialized for the *first time* for a given file system id (not path), the initial state of that file system is set to =Modified=.
+This is meant to be a conservative default value: in the snapshotting use case from the Motivation section, this would potentially result in an extra snapshot being taken right after the daemon was started up for the first time, which is safer than a potentially important snapshot /not/ being taken.
+
+Now, if we ~check~ the status of any of these file systems, the command will return exit code 0, which means that the file system /has/ been modified.
+#+begin_src sh
+$ sudo fs-sentinel check my_tmpfs && echo "It was modified!"
+It was modified!
+#+end_src
+
+Next, let's ~mark~ one of our file systems to reset its status to =UnModified=.
+#+begin_src sh
+$ sudo fs-sentinel mark my_tmpfs
+#+end_src
+
+If we re-~check~ the status of ~my_tmpfs~, we will see that it now reports exit code 1 instead.
+#+begin_src sh
+$ sudo fs-sentinel check my_tmpfs && echo "(This will not print)"
+$ sudo fs-sentinel check my_tmpfs || echo "my_tmpfs was /not/ modified since the last `mark` operation!"
+my_tmpfs was /not/ modified since the last `mark` operation!
+#+end_src
+
+As you might expect, ~list-modified~ will now report only the two other file systems, without ~my_tmpfs~.
+#+begin_src sh
+$ sudo fs-sentinel list-modified
+my_rootfs
+home
+#+end_src
+
+Now, let's modify ~my_tmpfs~ and see that ~fs-sentinel~ immediately picks it up!
+#+begin_src sh
+$ touch /tmp/some-random-file
+$ sudo fs-sentinel check my_tmpfs && echo "my_tmpfs was modified!"
+my_tmpfs was modified!
+#+end_src
+
+This should be sufficient to adapt ~fs-sentinel~ to your own use cases; however, if something in the documentation is unclear, please file an issue and I'll do my best to clear it up!
 * Provided Setups
 ** ZFS+Linux Integration
 ~fs-sentinel~ comes with short example code for monitoring mounted ZFS datasets on system startup, as well as example implementations for hooks to be used with the amazing [[https://github.com/jimsalterjrs/sanoid/][sanoid]] project, which was my primary usecase going into development.
