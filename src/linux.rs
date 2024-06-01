@@ -21,6 +21,8 @@ pub struct Linux;
 pub enum Error {
     #[error("can't find fsnotifywait binary in PATH; see README for more details")]
     MissingFSNotifyWait,
+    #[error("filesystem path doesn't exist or isn't accessible")]
+    InvalidFileSystemPath(PathBuf),
 }
 
 impl Platform for Linux {
@@ -32,8 +34,12 @@ impl Platform for Linux {
     }
 
     /// For the Linux platform, `filesystem.path` can be ANY directory within the Filesystem.
-    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher {
-        FSNotifyWaitWatcher(filesystem)
+    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Result<Self::Watcher, Self::Error> {
+        if !filesystem.path.exists() {
+            return Err(Error::InvalidFileSystemPath(filesystem.path));
+        }
+
+        Ok(FSNotifyWaitWatcher(filesystem))
     }
 
     /// Verifies that fsnotifywait is installed.

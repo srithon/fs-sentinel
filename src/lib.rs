@@ -44,6 +44,12 @@ pub enum FSSentinelError {
     HealthCheckError {
         source: Box<dyn std::error::Error + Send + Sync>,
     },
+
+    #[error("error while trying to watch filesystem")]
+    // see [Platform] documentation for reasoning behind `Send + Sync` bound
+    FileSystemWatchError {
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 macro_rules! wrap_err {

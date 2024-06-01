@@ -26,9 +26,10 @@ where
     /// Yields the directory for the cache file to be stored on the given platform.
     fn get_cache_directory(&self) -> PathBuf;
 
-    /// Given a path, yields an instance of `Watcher`, which will monitor the filesystem containing
-    /// `path`.
-    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Self::Watcher;
+    /// Given a path, yields an instance of `Watcher` wrapped in `Ok`, which will monitor the
+    /// filesystem containing `path`. If the underlying Platform does not support watching this
+    /// path, returns an `Err(E)`.
+    fn get_filesystem_watcher(&self, filesystem: FileSystem) -> Result<Self::Watcher, Self::Error>;
 
     /// Returns `Ok(())` if the underlying system supports the given `Platform`, otherwise returning
     /// `Err(E)`.
