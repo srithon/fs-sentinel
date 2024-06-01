@@ -1,7 +1,7 @@
 BINDIR=/usr/local/bin
 
 cli:
-	cargo build --release
+	cargo build --features=cli --release
 
 install: cli
 	sudo cp -a target/release/fs-sentinel $(BINDIR)
