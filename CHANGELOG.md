@@ -1,3 +1,7 @@
+# 0.2.5
+
+- decrease resource usage by using a single-threaded async runtime
+
 # 0.2.4
 
 - remove the "initially modified" behavior from the `fs-sentinel` library
