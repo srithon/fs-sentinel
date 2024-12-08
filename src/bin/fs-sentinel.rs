@@ -65,7 +65,7 @@ enum CLI {
     ListModified,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<ExitCode> {
     let cli = CLI::from_args();
 
